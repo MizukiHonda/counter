@@ -1,25 +1,46 @@
 <?php
-define('DATA_FILE','data.txt');
+define('DB_DSN',  'mysql:dbname=access;host=127.0.0.1');  // 接続先
+define('DB_USER', 'senpai');    // MySQLのID
+define('DB_PW',   'indocurry'); // MySQLのパスワード
 
-$count = getCounter(DATA_FILE);
+$dbh  = connectDB(DB_DSN,DB_USER,DB_PW);
+
+addCounter($dbh);
+
+$count = getCounter($dbh);
 header('Count-type: application/json');
 echo json_encode([
     'status' => true
     ,'count' => $count
 ]);
 
-function getCounter($file){
-    $fp = fopen($file, 'r+');
-    flock($fp, LOCK_EX);
-    $buff = (int)fgets($fp);
+function connectDB($dsn, $user, $pw){
+    $dbh = new PDO($dsn, $user, $pw);  
+    return($dbh);
+}
 
-    ftruncate($fp, 0); 
-    fseek($fp, 0); 
+function addCounter($dbh){
+    // SQLを準備
+    $sql = 'INSERT INTO access_log(accesstime) VALUES(now())';
 
-    fwrite($fp, $buff+1);
+    // 実行する
+    $sth = $dbh->prepare($sql);   // SQLを解析
+    $ret = $sth->execute();       // 実行
 
-    flock($fp, LOCK_UN);
-    fclose($fp); 
+    return($ret);
+}
 
-    return($buff);
+function getCounter($dbh){
+    $sql = 'SELECT count(*) as count FROM access_log';
+
+    $sth = $dbh->prepare($sql);    
+    $sth->execute();               
+    
+    $buff = $sth->fetch(PDO::FETCH_ASSOC);
+    if( $buff === false){
+        return(false);
+    }
+    else{
+        return( $buff['count'] );
+    }
 }
